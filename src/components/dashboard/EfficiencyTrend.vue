@@ -78,12 +78,12 @@ export default {
     const initTrendChart = () => {
       if (!trendChart.value) return;
 
-      // 清理旧实例
+      // Clear old instance
       if (chartInstance) {
         chartInstance.dispose();
       }
 
-      // 创建新实例
+      // Create new instance
       chartInstance = window.echarts.init(trendChart.value, null, {
         renderer: 'canvas'
       });
@@ -196,9 +196,20 @@ export default {
             yAxisIndex: 0,
             data: props.trendData.map(item => item.efficiency),
             smooth: true,
-            symbol: 'emptyCircle',
-            symbolSize: 6,
-            showSymbol: false,
+            symbol: 'circle',  // Changed from 'emptyCircle'
+            symbolSize: 8,     // Increased from 6
+            showSymbol: true,  // Changed from false
+            label: {           // Added label configuration
+              show: true,
+              position: 'top',
+              formatter: '{c}%',
+              fontSize: 12,
+              color: COLORS.textSecondary,
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              borderRadius: 3,
+              padding: [2, 4],
+              distance: 8
+            },
             emphasis: {
               focus: 'series',
               itemStyle: {
@@ -225,9 +236,20 @@ export default {
             yAxisIndex: 0,
             data: props.trendData.map(item => item.successRate),
             smooth: true,
-            symbol: 'emptyCircle',
-            symbolSize: 6,
-            showSymbol: false,
+            symbol: 'circle',  // Changed from 'emptyCircle'
+            symbolSize: 8,     // Increased from 6
+            showSymbol: true,  // Changed from false
+            label: {           // Added label configuration
+              show: true,
+              position: 'top',
+              formatter: '{c}%',
+              fontSize: 12,
+              color: COLORS.textSecondary,
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              borderRadius: 3,
+              padding: [2, 4],
+              distance: 8
+            },
             emphasis: {
               focus: 'series',
               itemStyle: {
@@ -256,6 +278,16 @@ export default {
             data: props.trendData.map(item => item.takeovers),
             barWidth: 10,
             barCategoryGap: '40%',
+            label: {           // Added label configuration
+              show: true,
+              position: 'top',
+              formatter: '{c}',
+              fontSize: 12,
+              color: COLORS.textSecondary,
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              borderRadius: 3,
+              padding: [2, 4]
+            },
             itemStyle: {
               color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
                 { offset: 0, color: 'rgba(229, 62, 62, 0.8)' },
@@ -278,7 +310,7 @@ export default {
             animationEasing: 'elasticOut'
           }
         ],
-        // 添加图表标记
+        // Add visual map
         visualMap: {
           show: false,
           dimension: 0,
@@ -294,7 +326,7 @@ export default {
 
       chartInstance.setOption(option);
 
-      // 添加辅助线
+      // Add auxiliary lines
       if (props.trendData.length > 0) {
         const lastEfficiency = props.trendData[props.trendData.length - 1].efficiency;
         const markLine = {
