@@ -17,7 +17,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 
 // Make echarts available globally
-app.config.globalProperties.$echarts = echarts;
+// app.config.globalProperties.$echarts = echarts;
+window.echarts = echarts
 
 // Mount the app
 app.mount('#app');
