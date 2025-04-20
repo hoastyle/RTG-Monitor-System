@@ -7,7 +7,8 @@
     </div>
 
     <div v-if="expanded" class="card-content">
-      <div class="trend-chart" ref="trendChart"></div>
+      <!-- Added explicit inline height to ensure proper rendering -->
+      <div class="trend-chart" ref="trendChart" style="width: 100%; height: 400px;"></div>
 
       <div class="trend-analysis">
         <div class="analysis-title">效率与成功率分析:</div>
@@ -64,6 +65,7 @@ export default {
     const trendChart = ref(null);
     let chartInstance = null;
     let resizeObserver = null;
+    let chartInitialized = ref(false);
 
     // 卡片样式
     const cardStyle = computed(() => ({
@@ -81,311 +83,288 @@ export default {
       // Clear old instance
       if (chartInstance) {
         chartInstance.dispose();
+        chartInstance = null;
       }
 
-      // Create new instance
-      chartInstance = window.echarts.init(trendChart.value, null, {
-        renderer: 'canvas'
-      });
+      // 使用setTimeout确保DOM已完全渲染
+      setTimeout(() => {
+        // Create new instance
+        chartInstance = window.echarts.init(trendChart.value, null, {
+          renderer: 'canvas'
+        });
 
-      const option = {
-        tooltip: {
-          trigger: 'axis',
-          backgroundColor: COLORS.cardBg,
-          borderColor: COLORS.border,
-          textStyle: {
-            color: COLORS.text
-          },
-          formatter: function(params) {
-            let result = params[0].name + '<br/>';
-            params.forEach(item => {
-              let colorSpan = `<span style="display:inline-block;margin-right:5px;border-radius:50%;width:10px;height:10px;background-color:${item.color};"></span>`;
-              let value = item.seriesName === '跳台次数' ? item.value : item.value + '%';
-              result += colorSpan + item.seriesName + ': ' + value + '<br/>';
-            });
-            return result;
-          }
-        },
-        legend: {
-          data: ['效率 (%)', '成功率 (%)', '跳台次数'],
-          textStyle: {
-            color: COLORS.text
-          },
-          top: 10,
-          icon: 'circle',
-          itemWidth: 10,
-          itemHeight: 10,
-          itemGap: 20
-        },
-        grid: {
-          left: '3%',
-          right: '5%',
-          bottom: '3%',
-          top: '15%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'category',
-          data: props.trendData.map(item => item.time),
-          boundaryGap: false,
-          axisLine: {
-            lineStyle: {
-              color: COLORS.border
+        const option = {
+          tooltip: {
+            trigger: 'axis',
+            backgroundColor: COLORS.cardBg,
+            borderColor: COLORS.border,
+            textStyle: {
+              color: COLORS.text
+            },
+            formatter: function(params) {
+              let result = params[0].name + '<br/>';
+              params.forEach(item => {
+                let colorSpan = `<span style="display:inline-block;margin-right:5px;border-radius:50%;width:10px;height:10px;background-color:${item.color};"></span>`;
+                let value = item.seriesName === '跳台次数' ? item.value : item.value + '%';
+                result += colorSpan + item.seriesName + ': ' + value + '<br/>';
+              });
+              return result;
             }
           },
-          axisLabel: {
-            color: COLORS.textSecondary,
-            fontSize: 12
-          }
-        },
-        yAxis: [
-          {
-            type: 'value',
-            name: '百分比',
-            min: 50,
-            max: 100,
-            nameTextStyle: {
-              color: COLORS.textSecondary,
-              fontSize: 12
+          legend: {
+            data: ['效率 (%)', '成功率 (%)', '跳台次数'],
+            textStyle: {
+              color: COLORS.text
             },
+            top: 10,
+            icon: 'circle',
+            itemWidth: 10,
+            itemHeight: 10,
+            itemGap: 20
+          },
+          grid: {
+            left: '3%',
+            right: '5%',
+            bottom: '3%',
+            top: '15%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: props.trendData.map(item => item.time),
+            boundaryGap: false,
             axisLine: {
               lineStyle: {
                 color: COLORS.border
               }
             },
-            splitLine: {
-              lineStyle: {
-                color: COLORS.border,
-                type: 'dashed'
-              }
-            },
-            axisLabel: {
-              color: COLORS.textSecondary,
-              fontSize: 12,
-              formatter: '{value}%'
-            }
-          },
-          {
-            type: 'value',
-            name: '次数',
-            min: 0,
-            max: 10,
-            position: 'right',
-            nameTextStyle: {
-              color: COLORS.textSecondary,
-              fontSize: 12
-            },
-            axisLine: {
-              lineStyle: {
-                color: COLORS.border
-              }
-            },
-            splitLine: {
-              show: false
-            },
             axisLabel: {
               color: COLORS.textSecondary,
               fontSize: 12
             }
-          }
-        ],
-        series: [
-          {
-            name: '效率 (%)',
-            type: 'line',
-            yAxisIndex: 0,
-            data: props.trendData.map(item => item.efficiency),
-            smooth: true,
-            symbol: 'circle',  // Changed from 'emptyCircle'
-            symbolSize: 8,     // Increased from 6
-            showSymbol: true,  // Changed from false
-            label: {           // Added label configuration
-              show: true,
-              position: 'top',
-              formatter: '{c}%',
-              fontSize: 12,
-              color: COLORS.textSecondary,
-              backgroundColor: 'rgba(0,0,0,0.3)',
-              borderRadius: 3,
-              padding: [2, 4],
-              distance: 8
-            },
-            emphasis: {
-              focus: 'series',
-              itemStyle: {
-                borderWidth: 2
-              }
-            },
-            lineStyle: {
-              width: 3,
-              shadowColor: 'rgba(56, 178, 172, 0.3)',
-              shadowBlur: 10
-            },
-            itemStyle: {
-              color: COLORS.active,
-              borderWidth: 2
-            },
-            z: 2,
-            animation: true,
-            animationDuration: 1000,
-            animationEasing: 'cubicOut'
           },
-          {
-            name: '成功率 (%)',
-            type: 'line',
-            yAxisIndex: 0,
-            data: props.trendData.map(item => item.successRate),
-            smooth: true,
-            symbol: 'circle',  // Changed from 'emptyCircle'
-            symbolSize: 8,     // Increased from 6
-            showSymbol: true,  // Changed from false
-            label: {           // Added label configuration
-              show: true,
-              position: 'top',
-              formatter: '{c}%',
-              fontSize: 12,
-              color: COLORS.textSecondary,
-              backgroundColor: 'rgba(0,0,0,0.3)',
-              borderRadius: 3,
-              padding: [2, 4],
-              distance: 8
-            },
-            emphasis: {
-              focus: 'series',
-              itemStyle: {
-                borderWidth: 2
-              }
-            },
-            lineStyle: {
-              width: 3,
-              shadowColor: 'rgba(56, 161, 105, 0.3)',
-              shadowBlur: 10
-            },
-            itemStyle: {
-              color: COLORS.success,
-              borderWidth: 2
-            },
-            z: 3,
-            animation: true,
-            animationDuration: 1000,
-            animationDelay: 300,
-            animationEasing: 'cubicOut'
-          },
-          {
-            name: '跳台次数',
-            type: 'bar',
-            yAxisIndex: 1,
-            data: props.trendData.map(item => item.takeovers),
-            barWidth: 10,
-            barCategoryGap: '40%',
-            label: {           // Added label configuration
-              show: true,
-              position: 'top',
-              formatter: '{c}',
-              fontSize: 12,
-              color: COLORS.textSecondary,
-              backgroundColor: 'rgba(0,0,0,0.3)',
-              borderRadius: 3,
-              padding: [2, 4]
-            },
-            itemStyle: {
-              color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(229, 62, 62, 0.8)' },
-                { offset: 1, color: 'rgba(229, 62, 62, 0.3)' }
-              ]),
-              borderRadius: [3, 3, 0, 0]
-            },
-            emphasis: {
-              itemStyle: {
-                color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                  { offset: 0, color: 'rgba(229, 62, 62, 1)' },
-                  { offset: 1, color: 'rgba(229, 62, 62, 0.5)' }
-                ])
-              }
-            },
-            z: 1,
-            animation: true,
-            animationDuration: 1000,
-            animationDelay: 600,
-            animationEasing: 'elasticOut'
-          }
-        ],
-        // Add visual map
-        visualMap: {
-          show: false,
-          dimension: 0,
-          pieces: [
+          yAxis: [
             {
-              gt: 0,
-              lte: props.trendData.length - 1,
-              color: 'transparent'
-            }
-          ]
-        }
-      };
-
-      chartInstance.setOption(option);
-
-      // Add auxiliary lines
-      if (props.trendData.length > 0) {
-        const lastEfficiency = props.trendData[props.trendData.length - 1].efficiency;
-        const markLine = {
-          data: [
-            {
-              name: '当前效率水平',
-              yAxis: lastEfficiency,
-              lineStyle: {
-                color: COLORS.active,
-                type: 'dashed',
-                width: 1
+              type: 'value',
+              name: '百分比',
+              min: 50,
+              max: 100,
+              nameTextStyle: {
+                color: COLORS.textSecondary,
+                fontSize: 12
               },
+              axisLine: {
+                lineStyle: {
+                  color: COLORS.border
+                }
+              },
+              splitLine: {
+                lineStyle: {
+                  color: COLORS.border,
+                  type: 'dashed'
+                }
+              },
+              axisLabel: {
+                color: COLORS.textSecondary,
+                fontSize: 12,
+                formatter: '{value}%'
+              }
+            },
+            {
+              type: 'value',
+              name: '次数',
+              min: 0,
+              max: 10,
+              position: 'right',
+              nameTextStyle: {
+                color: COLORS.textSecondary,
+                fontSize: 12
+              },
+              axisLine: {
+                lineStyle: {
+                  color: COLORS.border
+                }
+              },
+              splitLine: {
+                show: false
+              },
+              axisLabel: {
+                color: COLORS.textSecondary,
+                fontSize: 12
+              }
+            }
+          ],
+          series: [
+            {
+              name: '效率 (%)',
+              type: 'line',
+              yAxisIndex: 0,
+              data: props.trendData.map(item => item.efficiency),
+              smooth: true,
+              symbol: 'circle',
+              symbolSize: 8,
+              showSymbol: true,
               label: {
                 show: true,
-                position: 'insideEndTop',
-                formatter: '{b}: {c}%',
+                position: 'top',
+                formatter: '{c}%',
+                fontSize: 12,
+                color: COLORS.textSecondary,
+                backgroundColor: 'rgba(0,0,0,0.3)',
+                borderRadius: 3,
+                padding: [2, 4],
+                distance: 8
+              },
+              lineStyle: {
+                width: 3,
+                color: COLORS.active
+              },
+              itemStyle: {
                 color: COLORS.active,
-                fontSize: 12
+                borderWidth: 2
+              }
+            },
+            {
+              name: '成功率 (%)',
+              type: 'line',
+              yAxisIndex: 0,
+              data: props.trendData.map(item => item.successRate),
+              smooth: true,
+              symbol: 'circle',
+              symbolSize: 8,
+              showSymbol: true,
+              label: {
+                show: true,
+                position: 'top',
+                formatter: '{c}%',
+                fontSize: 12,
+                color: COLORS.textSecondary,
+                backgroundColor: 'rgba(0,0,0,0.3)',
+                borderRadius: 3,
+                padding: [2, 4],
+                distance: 8
+              },
+              lineStyle: {
+                width: 3,
+                color: COLORS.success
+              },
+              itemStyle: {
+                color: COLORS.success,
+                borderWidth: 2
+              }
+            },
+            {
+              name: '跳台次数',
+              type: 'bar',
+              yAxisIndex: 1,
+              data: props.trendData.map(item => item.takeovers),
+              barWidth: 10,
+              barCategoryGap: '40%',
+              label: {
+                show: true,
+                position: 'top',
+                formatter: '{c}',
+                fontSize: 12,
+                color: COLORS.textSecondary,
+                backgroundColor: 'rgba(0,0,0,0.3)',
+                borderRadius: 3,
+                padding: [2, 4]
+              },
+              itemStyle: {
+                color: COLORS.danger,
+                borderRadius: [3, 3, 0, 0]
               }
             }
           ]
         };
 
-        chartInstance.setOption({
-          series: [
-            {
-              id: 0,
-              markLine: markLine
-            }
-          ]
-        });
-      }
+        // 应用配置
+        chartInstance.setOption(option);
+
+        // 添加辅助线
+        if (props.trendData.length > 0) {
+          const lastEfficiency = props.trendData[props.trendData.length - 1].efficiency;
+          chartInstance.setOption({
+            series: [
+              {
+                name: '效率 (%)',
+                markLine: {
+                  silent: true,
+                  symbol: 'none',
+                  lineStyle: {
+                    color: COLORS.active,
+                    type: 'dashed',
+                    width: 1
+                  },
+                  label: {
+                    show: true,
+                    position: 'insideEndTop',
+                    formatter: '当前效率: {c}%',
+                    color: COLORS.active,
+                    fontSize: 12
+                  },
+                  data: [
+                    {
+                      yAxis: lastEfficiency
+                    }
+                  ]
+                }
+              }
+            ]
+          });
+        }
+
+        // 标记图表已初始化
+        chartInitialized.value = true;
+
+        // 立即触发一次resize以确保正确渲染
+        chartInstance.resize();
+      }, 100); // 短暂延迟以确保DOM已完全渲染
     };
 
     // 处理窗口大小变化
     const handleResize = () => {
-      if (chartInstance) {
+      if (chartInstance && chartInitialized.value) {
         chartInstance.resize();
       }
     };
 
     // 监听展开状态变化和数据变化，重新初始化图表
-    watch(() => [props.expanded, props.trendData, props.selectedProject, props.projectData], () => {
+    watch(() => [props.expanded, props.trendData, props.selectedProject], () => {
       if (props.expanded) {
         nextTick(() => {
+          // 重置初始化状态
+          chartInitialized.value = false;
+          // 初始化图表
           initTrendChart();
         });
       }
     }, { immediate: true });
 
+    // 单独监听项目数据变化，更新图表
+    watch(() => props.projectData, () => {
+      if (props.expanded && chartInstance && chartInitialized.value) {
+        chartInstance.resize();
+      }
+    });
+
     // 组件挂载后设置resize监听
     onMounted(() => {
-      if (window.ResizeObserver && trendChart.value) {
-        resizeObserver = new ResizeObserver(handleResize);
-        resizeObserver.observe(trendChart.value);
-      }
+      // 使用nextTick确保DOM已渲染
+      nextTick(() => {
+        if (props.expanded) {
+          initTrendChart();
+        }
 
-      // 同时监听窗口大小变化
-      window.addEventListener('resize', handleResize);
+        // 设置ResizeObserver
+        if (window.ResizeObserver && trendChart.value) {
+          resizeObserver = new ResizeObserver(handleResize);
+          resizeObserver.observe(trendChart.value);
+        }
+
+        // 同时监听窗口大小变化
+        window.addEventListener('resize', handleResize);
+      });
     });
 
     // 组件卸载前清理
@@ -444,7 +423,7 @@ export default {
 
 .trend-chart {
   width: 100%;
-  height: 300px;
+  height: 400px; /* Explicit fixed height */
   margin-bottom: 16px;
 }
 
