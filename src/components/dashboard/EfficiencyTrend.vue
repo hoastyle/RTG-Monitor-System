@@ -5,10 +5,10 @@
       <el-icon v-if="expanded"><ArrowUp /></el-icon>
       <el-icon v-else><ArrowDown /></el-icon>
     </div>
-    
+
     <div v-if="expanded" class="card-content">
       <div class="trend-chart" ref="trendChart"></div>
-      
+
       <div class="trend-analysis">
         <div class="analysis-title">效率与成功率分析:</div>
         <div class="analysis-content">
@@ -36,7 +36,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { COLORS } from '../../utils/colors';
 
 export default {
@@ -59,9 +59,12 @@ export default {
       required: true
     }
   },
+  emits: ['toggleSection'],
   setup(props) {
     const trendChart = ref(null);
-    
+    let chartInstance = null;
+    let resizeObserver = null;
+
     // 卡片样式
     const cardStyle = computed(() => ({
       backgroundColor: COLORS.cardBg,
@@ -70,13 +73,21 @@ export default {
       overflow: 'hidden',
       border: `1px solid ${COLORS.border}`
     }));
-    
+
     // 初始化趋势图
     const initTrendChart = () => {
       if (!trendChart.value) return;
-      
-      const chart = window.echarts.init(trendChart.value);
-      
+
+      // 清理旧实例
+      if (chartInstance) {
+        chartInstance.dispose();
+      }
+
+      // 创建新实例
+      chartInstance = window.echarts.init(trendChart.value, null, {
+        renderer: 'canvas'
+      });
+
       const option = {
         tooltip: {
           trigger: 'axis',
@@ -84,6 +95,15 @@ export default {
           borderColor: COLORS.border,
           textStyle: {
             color: COLORS.text
+          },
+          formatter: function(params) {
+            let result = params[0].name + '<br/>';
+            params.forEach(item => {
+              let colorSpan = `<span style="display:inline-block;margin-right:5px;border-radius:50%;width:10px;height:10px;background-color:${item.color};"></span>`;
+              let value = item.seriesName === '跳台次数' ? item.value : item.value + '%';
+              result += colorSpan + item.seriesName + ': ' + value + '<br/>';
+            });
+            return result;
           }
         },
         legend: {
@@ -91,7 +111,11 @@ export default {
           textStyle: {
             color: COLORS.text
           },
-          top: 10
+          top: 10,
+          icon: 'circle',
+          itemWidth: 10,
+          itemHeight: 10,
+          itemGap: 20
         },
         grid: {
           left: '3%',
@@ -103,13 +127,15 @@ export default {
         xAxis: {
           type: 'category',
           data: props.trendData.map(item => item.time),
+          boundaryGap: false,
           axisLine: {
             lineStyle: {
               color: COLORS.border
             }
           },
           axisLabel: {
-            color: COLORS.textSecondary
+            color: COLORS.textSecondary,
+            fontSize: 12
           }
         },
         yAxis: [
@@ -118,6 +144,10 @@ export default {
             name: '百分比',
             min: 50,
             max: 100,
+            nameTextStyle: {
+              color: COLORS.textSecondary,
+              fontSize: 12
+            },
             axisLine: {
               lineStyle: {
                 color: COLORS.border
@@ -130,7 +160,9 @@ export default {
               }
             },
             axisLabel: {
-              color: COLORS.textSecondary
+              color: COLORS.textSecondary,
+              fontSize: 12,
+              formatter: '{value}%'
             }
           },
           {
@@ -139,6 +171,10 @@ export default {
             min: 0,
             max: 10,
             position: 'right',
+            nameTextStyle: {
+              color: COLORS.textSecondary,
+              fontSize: 12
+            },
             axisLine: {
               lineStyle: {
                 color: COLORS.border
@@ -148,7 +184,8 @@ export default {
               show: false
             },
             axisLabel: {
-              color: COLORS.textSecondary
+              color: COLORS.textSecondary,
+              fontSize: 12
             }
           }
         ],
@@ -156,58 +193,183 @@ export default {
           {
             name: '效率 (%)',
             type: 'line',
+            yAxisIndex: 0,
             data: props.trendData.map(item => item.efficiency),
             smooth: true,
             symbol: 'emptyCircle',
-            itemStyle: {
-              color: COLORS.active
+            symbolSize: 6,
+            showSymbol: false,
+            emphasis: {
+              focus: 'series',
+              itemStyle: {
+                borderWidth: 2
+              }
             },
             lineStyle: {
-              width: 3
-            }
+              width: 3,
+              shadowColor: 'rgba(56, 178, 172, 0.3)',
+              shadowBlur: 10
+            },
+            itemStyle: {
+              color: COLORS.active,
+              borderWidth: 2
+            },
+            z: 2,
+            animation: true,
+            animationDuration: 1000,
+            animationEasing: 'cubicOut'
           },
           {
             name: '成功率 (%)',
             type: 'line',
+            yAxisIndex: 0,
             data: props.trendData.map(item => item.successRate),
             smooth: true,
             symbol: 'emptyCircle',
-            itemStyle: {
-              color: COLORS.success
+            symbolSize: 6,
+            showSymbol: false,
+            emphasis: {
+              focus: 'series',
+              itemStyle: {
+                borderWidth: 2
+              }
             },
             lineStyle: {
-              width: 3
-            }
+              width: 3,
+              shadowColor: 'rgba(56, 161, 105, 0.3)',
+              shadowBlur: 10
+            },
+            itemStyle: {
+              color: COLORS.success,
+              borderWidth: 2
+            },
+            z: 3,
+            animation: true,
+            animationDuration: 1000,
+            animationDelay: 300,
+            animationEasing: 'cubicOut'
           },
           {
             name: '跳台次数',
-            type: 'line',
+            type: 'bar',
             yAxisIndex: 1,
             data: props.trendData.map(item => item.takeovers),
-            smooth: true,
-            symbol: 'emptyCircle',
+            barWidth: 10,
+            barCategoryGap: '40%',
             itemStyle: {
-              color: COLORS.danger
+              color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(229, 62, 62, 0.8)' },
+                { offset: 1, color: 'rgba(229, 62, 62, 0.3)' }
+              ]),
+              borderRadius: [3, 3, 0, 0]
             },
-            lineStyle: {
-              width: 3
-            }
+            emphasis: {
+              itemStyle: {
+                color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: 'rgba(229, 62, 62, 1)' },
+                  { offset: 1, color: 'rgba(229, 62, 62, 0.5)' }
+                ])
+              }
+            },
+            z: 1,
+            animation: true,
+            animationDuration: 1000,
+            animationDelay: 600,
+            animationEasing: 'elasticOut'
           }
-        ]
+        ],
+        // 添加图表标记
+        visualMap: {
+          show: false,
+          dimension: 0,
+          pieces: [
+            {
+              gt: 0,
+              lte: props.trendData.length - 1,
+              color: 'transparent'
+            }
+          ]
+        }
       };
-      
-      chart.setOption(option);
+
+      chartInstance.setOption(option);
+
+      // 添加辅助线
+      if (props.trendData.length > 0) {
+        const lastEfficiency = props.trendData[props.trendData.length - 1].efficiency;
+        const markLine = {
+          data: [
+            {
+              name: '当前效率水平',
+              yAxis: lastEfficiency,
+              lineStyle: {
+                color: COLORS.active,
+                type: 'dashed',
+                width: 1
+              },
+              label: {
+                show: true,
+                position: 'insideEndTop',
+                formatter: '{b}: {c}%',
+                color: COLORS.active,
+                fontSize: 12
+              }
+            }
+          ]
+        };
+
+        chartInstance.setOption({
+          series: [
+            {
+              id: 0,
+              markLine: markLine
+            }
+          ]
+        });
+      }
     };
-    
+
+    // 处理窗口大小变化
+    const handleResize = () => {
+      if (chartInstance) {
+        chartInstance.resize();
+      }
+    };
+
     // 监听展开状态变化和数据变化，重新初始化图表
-    watch(() => [props.expanded, props.trendData, props.selectedProject], () => {
+    watch(() => [props.expanded, props.trendData, props.selectedProject, props.projectData], () => {
       if (props.expanded) {
-        setTimeout(() => {
+        nextTick(() => {
           initTrendChart();
-        }, 0);
+        });
       }
     }, { immediate: true });
-    
+
+    // 组件挂载后设置resize监听
+    onMounted(() => {
+      if (window.ResizeObserver && trendChart.value) {
+        resizeObserver = new ResizeObserver(handleResize);
+        resizeObserver.observe(trendChart.value);
+      }
+
+      // 同时监听窗口大小变化
+      window.addEventListener('resize', handleResize);
+    });
+
+    // 组件卸载前清理
+    onUnmounted(() => {
+      window.removeEventListener('resize', handleResize);
+
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+
+      if (chartInstance) {
+        chartInstance.dispose();
+        chartInstance = null;
+      }
+    });
+
     return {
       COLORS,
       cardStyle,
@@ -225,6 +387,11 @@ export default {
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.card-header:hover {
+  background-color: rgba(58, 66, 86, 0.3);
 }
 
 .section-title {
@@ -235,29 +402,58 @@ export default {
 
 .card-content {
   padding: 16px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .trend-chart {
   width: 100%;
   height: 300px;
+  margin-bottom: 16px;
 }
 
 .trend-analysis {
   margin-top: 16px;
-  padding: 12px;
+  padding: 16px;
   background-color: rgba(66, 153, 225, 0.1);
   border-radius: 6px;
   border: 1px solid rgba(66, 153, 225, 0.3);
   font-size: 14px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.trend-analysis:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 
 .analysis-title {
-  font-weight: 500;
-  margin-bottom: 8px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: v-bind('COLORS.active');
+  display: flex;
+  align-items: center;
+}
+
+.analysis-title::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background-color: v-bind('COLORS.active');
+  margin-right: 8px;
+  border-radius: 2px;
 }
 
 .analysis-content {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+  padding-left: 12px;
+  border-left: 2px solid rgba(66, 153, 225, 0.3);
 }
 
 .analysis-content:last-child {
